@@ -128,6 +128,6 @@ for (const eventName of ['dragleave', 'drop']) {
 }
 dropZone.addEventListener('drop', (event) => readFile(event.dataTransfer.files[0]));
 loadExampleButton.addEventListener('click', async () => {
-  const response = await fetch('/examples/so101-calibration.example.json');
+  const response = await fetch(`${import.meta.env.BASE_URL}examples/so101-calibration.example.json`);
   renderCalibration(await response.json(), 'Synthetic example');
 });

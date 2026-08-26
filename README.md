@@ -16,6 +16,6 @@ flowchart LR
 5. Clear the robot workspace, then type `ARM` when the bridge reports the Lens connection.
 6. Open **Operate**, select **Real arm**, and align the virtual base with the physical base.
 
-Web tools: `npm install && npm run dev`
+Web tools: [so101.curvilinear.space](https://so101.curvilinear.space) · Local: `npm install && npm run dev`
 
 Resources: [LeRobot SO-101 guide](https://huggingface.co/docs/lerobot/main/en/so101) · [LeRobot repository](https://github.com/huggingface/lerobot) · [Seeed servo driver board](https://wiki.seeedstudio.com/bus_servo_driver_board/) · [Seeed schematic](https://files.seeedstudio.com/wiki/bus_servo_driver_board/202004237_Servo_Driver_Board_for_Seeed_Studio_XIAO_SCH_PDF_250225.pdf)
