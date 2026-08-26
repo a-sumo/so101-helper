@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Small, local-first helpers for SO-101 calibration and assembly animation setup." />
+    <meta property="og:title" content="SO-101 Helper" />
+    <meta property="og:description" content="Check calibration and prepare an SO-101 assembly timeline in your browser." />
+    <title>SO-101 Helper</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body data-page="home">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="SO-101 Helper home">
+        <span class="brand-mark" aria-hidden="true">S101</span>
+        <span>SO-101 Helper</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="/calibration.html">Calibration</a>
+        <a href="/assembly.html">Assembly animation</a>
+        <a href="https://huggingface.co/docs/lerobot/main/en/so101" rel="noreferrer">Official guide ↗</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero dot-surface">
+        <div class="hero-copy">
+          <p class="eyebrow">OPEN-SOURCE WORKBENCH</p>
+          <h1>Two focused helpers for your SO-101.</h1>
+          <p class="hero-lede">Inspect a LeRobot calibration snapshot and prepare an assembly-animation timeline in your browser.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="/calibration.html">Check calibration</a>
+            <a class="button button-secondary" href="/assembly.html">Build a timeline</a>
+          </div>
+        </div>
+        <div class="hero-readout" aria-label="Tool overview">
+          <div class="readout-head"><span>HELPER STATUS</span><span class="status-live">LOCAL</span></div>
+          <div class="signal-bars" aria-hidden="true">
+            <i class="filled"></i><i class="filled"></i><i class="filled"></i><i class="filled"></i><i class="filled"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <dl class="spec-list">
+            <div><dt>Calibration</dt><dd>JSON</dd></div>
+            <div><dt>Assembly</dt><dd>Timeline</dd></div>
+            <div><dt>Robot</dt><dd>Local bridge</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="tool-grid" aria-labelledby="tools-title">
+        <div class="section-heading">
+          <p class="eyebrow">TOOLS</p>
+          <h2 id="tools-title">Useful by design. Small on purpose.</h2>
+        </div>
+        <article class="tool-card dot-surface">
+          <div class="tool-number">01</div>
+          <div>
+            <p class="card-kicker">CALIBRATION INSPECTOR</p>
+            <h3>See the usable motion envelope.</h3>
+            <p>Validate motor IDs, encoder ranges, homing offsets, and the physical joint bounds applied to your measured span.</p>
+            <a class="text-link" href="/calibration.html">Open calibration inspector →</a>
+          </div>
+        </article>
+        <article class="tool-card dot-surface">
+          <div class="tool-number">02</div>
+          <div>
+            <p class="card-kicker">TIMELINE BUILDER</p>
+            <h3>Shape an assembly sequence.</h3>
+            <p>Define stages and timing, preview the segmented progress behavior, and export the sequence as JSON.</p>
+            <a class="text-link" href="/assembly.html">Open timeline builder →</a>
+          </div>
+        </article>
+      </section>
+
+      <section class="upstream-callout">
+        <p class="eyebrow">SO-101 GUIDES</p>
+        <h2>Build and calibration references.</h2>
+        <p>Follow the official SO-101 instructions for assembly, motor setup, safety, and calibration.</p>
+        <div class="link-row">
+          <a class="button button-secondary" href="https://huggingface.co/docs/lerobot/main/en/so101" rel="noreferrer">LeRobot SO-101 guide ↗</a>
+          <a class="button button-secondary" href="https://github.com/TheRobotStudio/SO-ARM100" rel="noreferrer">SO-ARM100 files ↗</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>SO-101 Helper</span>
+      <span>Calibration · Assembly animation · Real arm</span>
+    </footer>
+    <script type="module" src="/src/shell.js"></script>
+  </body>
+</html>

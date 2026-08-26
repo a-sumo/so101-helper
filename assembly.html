@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Prepare and preview an SO-101 assembly animation timeline in your browser." />
+    <title>Assembly Timeline · SO-101 Helper</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body data-page="assembly">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="SO-101 Helper home"><span class="brand-mark" aria-hidden="true">S101</span><span>SO-101 Helper</span></a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="/calibration.html">Calibration</a>
+        <a href="/assembly.html" aria-current="page">Assembly animation</a>
+        <a href="https://huggingface.co/docs/lerobot/main/en/so101" rel="noreferrer">Official guide ↗</a>
+      </nav>
+    </header>
+
+    <main class="workspace-main">
+      <section class="workspace-intro">
+        <div>
+          <p class="eyebrow">ASSEMBLY TIMELINE</p>
+          <h1>Build the assembly timeline.</h1>
+          <p>Create stages, preview their timing with a segmented progress display, and export the sequence as JSON.</p>
+        </div>
+        <a class="button button-secondary" href="https://huggingface.co/docs/lerobot/main/en/so101#assemble-the-so-101" rel="noreferrer">Assembly guide ↗</a>
+      </section>
+
+      <section class="timeline-stage dot-surface">
+        <div class="stage-head">
+          <div><span class="summary-label">PREVIEW</span><strong id="preview-title">SO-101 assembly</strong></div>
+          <div class="stage-time"><span id="current-time">00:00.0</span><span class="time-divider">/</span><span id="total-time">00:00.0</span></div>
+        </div>
+        <div class="progress-segments" id="progress-segments" aria-label="Assembly progress"></div>
+        <div class="active-step" id="active-step" aria-live="polite">
+          <span class="active-index">01</span>
+          <div><span class="summary-label">CURRENT STAGE</span><strong>Prepare the workspace</strong></div>
+          <span class="active-group">PREP</span>
+        </div>
+        <div class="transport">
+          <button class="icon-button" id="restart" type="button" aria-label="Restart">↺</button>
+          <button class="button button-primary" id="play" type="button">Play preview</button>
+          <input id="scrubber" class="scrubber" type="range" min="0" max="1000" value="0" aria-label="Assembly timeline position" />
+          <label class="speed-control">Speed
+            <select id="speed" aria-label="Preview speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+          </label>
+        </div>
+      </section>
+
+      <section class="editor-layout">
+        <div class="editor-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">TIMELINE JSON</p><h2>Sequence</h2></div>
+            <div class="button-row">
+              <button class="button button-secondary" id="import-sequence" type="button">Import</button>
+              <button class="button button-secondary" id="export-sequence" type="button">Export JSON</button>
+              <input id="sequence-file" type="file" accept="application/json,.json" hidden />
+            </div>
+          </div>
+          <label class="field-label" for="sequence-title">Sequence title</label>
+          <input class="text-input" id="sequence-title" value="SO-101 assembly" maxlength="80" />
+          <div class="steps-table" id="steps-table"></div>
+          <button class="add-step" id="add-step" type="button">＋ Add stage</button>
+        </div>
+
+        <aside class="guide-panel dot-surface">
+          <p class="eyebrow">FORMAT NOTES</p>
+          <h2>Keep it portable.</h2>
+          <ul class="clean-list">
+            <li><strong>Label</strong><span>Viewer-facing stage name.</span></li>
+            <li><strong>Group</strong><span>Short category used for color and filtering.</span></li>
+            <li><strong>Duration</strong><span>Playback time in milliseconds.</span></li>
+          </ul>
+          <a class="text-link" href="https://github.com/a-sumo/so101-helper/blob/main/docs/assembly-animation.md">Read the format guide →</a>
+        </aside>
+      </section>
+
+      <section class="message-panel" id="sequence-messages" hidden aria-live="polite"></section>
+    </main>
+
+    <footer class="site-footer"><span>Assembly timeline builder</span><span>SO-101 Helper</span></footer>
+    <script type="module" src="/src/assembly.js"></script>
+  </body>
+</html>
