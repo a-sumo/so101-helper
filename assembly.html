@@ -135,7 +135,7 @@
 
   /* Catalogue labels */
   .cat-label {
-    background: rgba(24, 120, 224, 0.9);
+    background: rgba(33, 169, 193, 0.9);
     color: #fff;
     font-family: 'Inter', sans-serif;
     font-size: 10px;
@@ -156,7 +156,7 @@
     display: block;
   }
   .cat-group-label {
-    background: rgba(224, 48, 32, 0.9);
+    background: rgba(236, 120, 89, 0.9);
     font-size: 11px;
     padding: 3px 8px;
   }
@@ -219,7 +219,6 @@
     <button class="btn btn-sm" id="toggle-servo-hunt" title="Servo hunt: joints rotate during assembly (Iron Man mode)">Hunt</button>
     <button class="btn btn-sm" id="toggle-wireframe">Wire</button>
     <button class="btn btn-sm" id="toggle-xray">X-ray</button>
-    <button class="btn btn-sm" id="toggle-movement-grid" title="Switch between clearance-transfer and receiving-datum paths">Path: Clearance</button>
     <button class="btn btn-sm" id="toggle-grid">Floor grid</button>
     <button class="btn btn-sm" id="toggle-shadows">Shadows</button>
     <button class="btn btn-sm" id="toggle-catalogue" title="Parts catalogue: exploded view with labels">Catalogue</button>
@@ -330,14 +329,6 @@ import { createStudioScene, applyURDFMaterials } from './src/studio-scene.js';
 import { createGnomon } from './src/gnomon.js';
 import { exportAssemblyGLB, generateLSConfig } from './src/glb-export.js';
 import { ASSEMBLY_PALETTE, classifyPhysicalPart } from './src/assembly-palette.js';
-import {
-  FASTENER_PHASES,
-  MOTION_TRAJECTORY_MODES,
-  effectiveStepWindow,
-  orientationAlignmentProgress,
-  sampleStagedCenter,
-  stagingCenterForStep,
-} from './src/assembly-staging.js';
 
 // ─── Toast ───
 function toast(msg) {
@@ -357,15 +348,15 @@ const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
 const hoverOutline = new OutlinePass(new THREE.Vector2(innerWidth, innerHeight), scene, camera);
-hoverOutline.visibleEdgeColor.set(0x1060b0);
-hoverOutline.hiddenEdgeColor.set(0x0a3060);
+hoverOutline.visibleEdgeColor.set(0x21a9c1);
+hoverOutline.hiddenEdgeColor.set(0x08768a);
 hoverOutline.edgeStrength = 3;
 hoverOutline.edgeThickness = 1.2;
 hoverOutline.edgeGlow = 0;
 
 const selectOutline = new OutlinePass(new THREE.Vector2(innerWidth, innerHeight), scene, camera);
-selectOutline.visibleEdgeColor.set(0x1878e0);
-selectOutline.hiddenEdgeColor.set(0x1878e0);
+selectOutline.visibleEdgeColor.set(0xec7859);
+selectOutline.hiddenEdgeColor.set(0xec7859);
 selectOutline.edgeStrength = 4;
 selectOutline.edgeThickness = 1.5;
 selectOutline.edgeGlow = 0.5;
@@ -417,15 +408,15 @@ function getRaycastTargets() {
   return targets;
 }
 
-// Find the URDF link name for any mesh by walking up the parent chain
+// Resolve the URDF link name from the mesh ancestry.
 function findLinkForMesh(mesh) {
-  // 1. Check meshToLink map
+  // Check the direct mesh-to-link mapping.
   const mapped = meshToLink.get(mesh);
   if (mapped && mapped !== 'unknown') return mapped;
-  // 2. Walk parent chain looking for a URDF link node
+  // Traverse ancestors when the direct mapping is unavailable.
   let node = mesh.parent;
   while (node) {
-    // Check if this node is a known link
+    // Match the current ancestor against known links.
     if (robot && robot.links) {
       for (const [name, linkObj] of Object.entries(robot.links)) {
         if (node === linkObj) return name;
@@ -437,27 +428,27 @@ function findLinkForMesh(mesh) {
 }
 
 function meshToPart(mesh) {
-  // Screws first (fast check)
+  // Resolve annotated screws directly.
   if (mesh.userData.isScrew && mesh.userData.annotation) {
     return partsCatalog.find(p => p.type === 'screw' && p.name === mesh.userData.annotation.name) || null;
   }
 
-  // Extra GLB parts: any mesh with extraPart userData
+  // Resolve extra GLB parts from their metadata.
   if (mesh.userData.extraPart) {
     return partsCatalog.find(p => p.type === 'extra' && p.name === mesh.userData.extraPart) || null;
   }
 
-  // 1. Direct reference match
+  // Match direct mesh references.
   for (const p of partsCatalog) {
     if (p.type === 'mesh' && p.mesh === mesh) return p;
   }
 
-  // 2. Find the link this mesh belongs to, then match catalog entry
+  // Match the catalog entry through the containing link.
   const linkName = findLinkForMesh(mesh);
   if (!linkName) return null;
 
   const filename = mesh.userData.filename;
-  // Try exact link+filename match
+  // Match the exact link and filename when available.
   if (filename) {
     const m = partsCatalog.find(p => p.type === 'mesh' && p.link === linkName && p.name === filename);
     if (m) return m;
@@ -779,7 +770,7 @@ function buildPartsCatalog() {
   // Add deduplicated URDF visual meshes to the parts catalog.
   const seen = new Set();
   for (const [linkName, meshList] of linkMeshes) {
-    // Only use the first occurrence of each filename per link (skip collision)
+    // Use one visual mesh for each filename within a link.
     const filenames = new Set();
     for (const entry of meshList) {
       if (filenames.has(entry.filename)) continue;
@@ -1064,24 +1055,6 @@ function worldToLinkLocal(v, linkObj) {
   return v.clone().applyMatrix3(_m3);
 }
 
-function setObjectWorldQuaternion(object, worldQuaternion) {
-  if (!object.parent) {
-    object.quaternion.copy(worldQuaternion);
-    return;
-  }
-  const parentWorld = object.parent.getWorldQuaternion(new THREE.Quaternion());
-  object.quaternion.copy(parentWorld.invert().multiply(worldQuaternion));
-}
-
-function datumStagingWorldQuaternion(restWorldQuaternion, approachOffset) {
-  if (approachOffset.lengthSq() < 1e-10) return restWorldQuaternion.clone();
-  const fixtureDelta = new THREE.Quaternion().setFromUnitVectors(
-    approachOffset.clone().normalize(),
-    new THREE.Vector3(0, 0, 1),
-  );
-  return fixtureDelta.multiply(restWorldQuaternion.clone());
-}
-
 // Compute rest world position WITHOUT modifying any mesh
 function getRestWorldPos(part) {
   if (part.type === 'mesh' && part.mesh) {
@@ -1184,7 +1157,6 @@ let currentTime = 0;
 let playing = false;
 let lastFrameTime = 0;
 let servoHuntEnabled = false;
-let movementMode = MOTION_TRAJECTORY_MODES.spatial;
 
 // Store original transforms for mesh parts
 const originalTransforms = new Map(); // mesh → { pos: Vector3, quat: Quaternion }
@@ -1287,24 +1259,15 @@ function applyAnimationState() {
     mesh.quaternion.copy(orig.quat);
   }
 
-  // The complete kit is visible from frame zero. Each sequence step assigns
-  // one staging slot and moves its part through lift, transfer, alignment,
-  // and physical insertion into the final pose.
+  // Set all catalog parts invisible before applying step-specific visibility.
   for (const part of partsCatalog) {
     if (part.type === 'mesh' && part.mesh) {
-      part.mesh.visible = true;
-      part.mesh.material.transparent = false;
-      part.mesh.material.depthWrite = true;
-      part.mesh.material.opacity = 1;
+      part.mesh.visible = false;
     } else if (part.type === 'screw') {
       const si = screw3DInstances.find(s => s.annotation.name === part.name);
-      if (si) {
-        si.mesh.visible = true;
-        si.mesh.material.transparent = false;
-        si.mesh.material.opacity = 1;
-      }
+      if (si) si.mesh.visible = false;
     } else if (part.type === 'extra' && part.meshes) {
-      for (const mesh of part.meshes) mesh.visible = true;
+      for (const mesh of part.meshes) mesh.visible = false;
     }
   }
 
@@ -1346,13 +1309,20 @@ function applyAnimationState() {
   }
 
   // 3. Apply each step's interpolation
-  for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
-    const step = steps[stepIndex];
-    const [tStart, tEnd] = effectiveStepWindow(steps, stepIndex);
+  for (const step of steps) {
+    const [tStart, tEnd] = step.time;
     const duration = tEnd - tStart;
     if (duration <= 0) continue;
 
     const progress = Math.max(0, Math.min(1, (t - tStart) / duration));
+    const ep = easeFunc(progress, step.easing);
+    const blend = 1 - ep; // 1 = full offset (start), 0 = at rest (end)
+
+    const offsetPos = new THREE.Vector3(...step.start_offset.pos).multiplyScalar(blend);
+    const offsetRot = new THREE.Euler(...step.start_offset.rot);
+    const offsetQuat = new THREE.Quaternion().slerp(
+      new THREE.Quaternion().setFromEuler(offsetRot), blend
+    );
 
     const part = partsCatalog.find(p => p.id === step.id);
     if (!part) continue;
@@ -1362,96 +1332,43 @@ function applyAnimationState() {
       if (!linkObj) continue;
       const orig = originalTransforms.get(part.mesh);
       if (!orig) continue;
-      part.mesh.updateWorldMatrix(true, false);
-      const restCenter = new THREE.Box3()
-        .setFromObject(part.mesh)
-        .getCenter(new THREE.Vector3());
-      const stagingCenter = new THREE.Vector3(
-        ...stagingCenterForStep(steps, stepIndex),
-      );
-      const approachOffset = linkLocalToWorld(
-        new THREE.Vector3(...step.start_offset.pos),
-        linkObj,
-      );
-      const desiredCenter = new THREE.Vector3(...sampleStagedCenter({
-        stagingCenter: stagingCenter.toArray(),
-        restCenter: restCenter.toArray(),
-        approachOffset: approachOffset.toArray(),
-        normalizedTime: progress,
-        sourceIndex: stepIndex,
-        fastener: false,
-        trajectoryMode: movementMode,
-      }));
-      const worldOff = desiredCenter.sub(restCenter);
+
+      // Convert link-local offset → world → mesh-parent space
+      const worldOff = linkLocalToWorld(offsetPos, linkObj);
       const meshParent = part.mesh.parent;
       const parentOff = meshParent ? worldToLinkLocal(worldOff, meshParent) : worldOff;
 
       part.mesh.position.copy(orig.pos).add(parentOff);
-      part.mesh.updateWorldMatrix(true, false);
-      const restWorldRotation = part.mesh.getWorldQuaternion(new THREE.Quaternion());
-      const stagingWorldRotation = datumStagingWorldQuaternion(
-        restWorldRotation,
-        approachOffset,
-      );
-      setObjectWorldQuaternion(
-        part.mesh,
-        stagingWorldRotation.slerp(
-          restWorldRotation,
-          orientationAlignmentProgress(progress),
-        ),
-      );
+      part.mesh.quaternion.copy(new THREE.Quaternion().multiplyQuaternions(offsetQuat, orig.quat));
+
+      // Opacity: hidden before fade window, fade in, then fully visible
+      const fadeLead = step.fade_lead || 0.3;
+      const fadeStart = tStart - fadeLead;
+      if (t < fadeStart) {
+        part.mesh.visible = false;
+      } else if (t < tStart) {
+        part.mesh.visible = true;
+        part.mesh.material.transparent = true;
+        part.mesh.material.depthWrite = false;
+        part.mesh.material.opacity = (t - fadeStart) / fadeLead;
+      } else {
+        part.mesh.visible = true;
+        part.mesh.material.transparent = false;
+        part.mesh.material.depthWrite = true;
+        part.mesh.material.opacity = 1;
+      }
     } else if (part.type === 'screw') {
       const si = screw3DInstances.find(s => s.annotation.name === part.name);
       if (!si) continue;
-      const linkObj = robot.frames[step.link] || robot;
-      si.mesh.updateWorldMatrix(true, false);
-      const restCenter = new THREE.Box3()
-        .setFromObject(si.mesh)
-        .getCenter(new THREE.Vector3());
-      const stagingCenter = new THREE.Vector3(
-        ...stagingCenterForStep(steps, stepIndex),
-      );
-      const approachOffset = linkLocalToWorld(
-        new THREE.Vector3(...step.start_offset.pos),
-        linkObj,
-      );
-      const desiredCenter = new THREE.Vector3(...sampleStagedCenter({
-        stagingCenter: stagingCenter.toArray(),
-        restCenter: restCenter.toArray(),
-        approachOffset: approachOffset.toArray(),
-        normalizedTime: progress,
-        sourceIndex: stepIndex,
-        fastener: true,
-        trajectoryMode: movementMode,
-      }));
-      si.mesh.position.add(desiredCenter.sub(restCenter));
 
-      const restWorldRotation = si.mesh.getWorldQuaternion(new THREE.Quaternion());
-      const fixtureWorldRotation = new THREE.Quaternion().setFromAxisAngle(
-        new THREE.Vector3(1, 0, 0),
-        Math.PI / 2,
-      );
-      const axisAlignment = progress <= FASTENER_PHASES.orientationStart
-        ? 0
-        : easeFunc(
-          (progress - FASTENER_PHASES.orientationStart) /
-            (FASTENER_PHASES.axisLocked - FASTENER_PHASES.orientationStart),
-          'ease-in-out',
-        );
-      setObjectWorldQuaternion(
-        si.mesh,
-        fixtureWorldRotation.slerp(restWorldRotation, axisAlignment),
-      );
+      // For screws, offset is in link-local → transform to world
+      const linkObj = robot.frames[step.link] || robot;
+      const worldOffset = linkLocalToWorld(offsetPos, linkObj);
+      si.mesh.position.add(worldOffset);
 
       // Screw threading rotation
       if (step.screw_rotations && step.screw_rotations > 0) {
-        const insertT = Math.max(0, Math.min(
-          1,
-          (progress - FASTENER_PHASES.threadStart) /
-            (1 - FASTENER_PHASES.threadStart),
-        ));
-        const threadAngle = easeFunc(insertT, 'ease-in-out') *
-          step.screw_rotations * Math.PI * 2;
+        const threadAngle = ep * step.screw_rotations * Math.PI * 2;
         const ann = si.annotation;
         let worldNormal;
         if (ann.link !== 'unknown' && robot.frames[ann.link]) {
@@ -1462,19 +1379,27 @@ function applyAnimationState() {
         const threadQuat = new THREE.Quaternion().setFromAxisAngle(worldNormal.normalize(), threadAngle);
         si.mesh.quaternion.premultiply(threadQuat);
       }
+
+      // Screw fade
+      const fadeLead = step.fade_lead || 0.15;
+      const fadeStart = tStart - fadeLead;
+      if (t < fadeStart) {
+        si.mesh.visible = false;
+      } else if (t < tStart) {
+        si.mesh.visible = true;
+        si.mesh.material.transparent = true;
+        si.mesh.material.opacity = (t - fadeStart) / fadeLead;
+      } else {
+        si.mesh.visible = true;
+        si.mesh.material.transparent = false;
+        si.mesh.material.opacity = 1;
+      }
     } else if (part.type === 'extra' && part.group) {
       // Extra GLB: animate the whole group
       const orig = originalTransforms.get(part.group);
       if (!orig) continue;
 
       // World-space offset (extra parts are scene-root children)
-      const ep = easeFunc(progress, step.easing);
-      const blend = 1 - ep;
-      const offsetPos = new THREE.Vector3(...step.start_offset.pos).multiplyScalar(blend);
-      const offsetRot = new THREE.Euler(...step.start_offset.rot);
-      const offsetQuat = new THREE.Quaternion().slerp(
-        new THREE.Quaternion().setFromEuler(offsetRot), blend
-      );
       part.group.position.copy(orig.pos).add(offsetPos);
       part.group.quaternion.copy(new THREE.Quaternion().multiplyQuaternions(offsetQuat, orig.quat));
 
@@ -1844,7 +1769,7 @@ document.getElementById('tl-fit').addEventListener('click', () => {
 }
 
 // ── Scroll + Zoom ──
-// Listen on the complete timeline panel to capture its scroll input.
+// Capture scrolling across the full timeline panel.
 document.getElementById('timeline-panel').addEventListener('wheel', (e) => {
   e.preventDefault();
   e.stopPropagation();
@@ -2259,9 +2184,8 @@ document.getElementById('auto-sequence-btn').addEventListener('click', () => {
   steps = [];
   selectedStepIdx = -1;
 
-  // Auto-assign steps: meshes first (grouped by link, bottom-up), then screws.
-  // Overlapping start times produce progressive opacity transitions in the
-  // exported GLB.
+  // Assign meshes by link from the base upward, followed by screws.
+  // Overlapping start times produce progressive opacity transitions in the GLB.
   const linkOrder = ['base_link', 'shoulder_link', 'upper_arm_link', 'lower_arm_link', 'wrist_link', 'gripper_link'];
   let t = 0;
   const meshDuration = 1.8;        // how long each mesh animates into place
@@ -2349,17 +2273,6 @@ document.getElementById('toggle-xray').addEventListener('click', function() {
 document.getElementById('toggle-grid').addEventListener('click', function() {
   grid.visible = !grid.visible;
   this.classList.toggle('active', grid.visible);
-});
-
-document.getElementById('toggle-movement-grid').addEventListener('click', function() {
-  movementMode = movementMode === MOTION_TRAJECTORY_MODES.spatial
-    ? MOTION_TRAJECTORY_MODES.grid
-    : MOTION_TRAJECTORY_MODES.spatial;
-  const gridPath = movementMode === MOTION_TRAJECTORY_MODES.grid;
-  this.classList.toggle('active', gridPath);
-  this.textContent = gridPath ? 'Path: Datum' : 'Path: Clearance';
-  applyAnimationState();
-  toast(gridPath ? 'Receiving-datum path' : 'Clearance-transfer path');
 });
 
 document.getElementById('toggle-shadows').addEventListener('click', function() {
@@ -2598,8 +2511,7 @@ document.getElementById('export-glb-btn').addEventListener('click', async () => 
     const glb = await exportAssemblyGLB(
       robot, steps, totalDuration,
       originalTransforms, screw3DInstances, partsCatalog,
-      linkLocalToWorld, worldToLinkLocal,
-      {trajectoryMode: movementMode}
+      linkLocalToWorld, worldToLinkLocal
     );
     const blob = new Blob([glb], { type: 'model/gltf-binary' });
     const url = URL.createObjectURL(blob);
@@ -2798,7 +2710,6 @@ async function init() {
 
     resizeTimeline();
     applyAnimationState();
-    frameStagedKit();
     toast(`Loaded: ${partsCatalog.length} parts, ${screwAnnotations.length} screws`);
   } catch (e) {
     console.error('Init error:', e);
@@ -2825,79 +2736,6 @@ function autoSave() {
 function manualSave() {
   autoSave();
   toast('Saved to localStorage');
-}
-
-/**
- * Frame the complete staged kit after its authored transforms have been
- * applied. The default camera is composed for the assembled arm; the desk
- * layout is deliberately wider and needs its own establishing shot.
- */
-function frameStagedKit() {
-  const bounds = new THREE.Box3();
-  let hasGeometry = false;
-
-  for (const part of partsCatalog) {
-    const objects = part.type === 'mesh' && part.mesh
-      ? [part.mesh]
-      : part.type === 'screw'
-        ? [screw3DInstances.find(si => si.annotation.name === part.name)?.mesh]
-        : part.type === 'extra'
-          ? part.meshes
-          : [];
-
-    for (const object of objects || []) {
-      if (!object?.visible) continue;
-      object.updateWorldMatrix(true, false);
-      bounds.expandByObject(object, true);
-      hasGeometry = true;
-    }
-  }
-
-  if (!hasGeometry || bounds.isEmpty()) return;
-
-  const sphere = bounds.getBoundingSphere(new THREE.Sphere());
-  const viewDirection = camera.position.clone().sub(controls.target).normalize();
-  const verticalHalfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
-  const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * camera.aspect);
-  const timelineTop = document.getElementById('timeline-panel')?.getBoundingClientRect().top
-    ?? innerHeight;
-  const safeHeight = Math.max(innerHeight * 0.45, timelineTop);
-  const safeVerticalHalfFov = Math.atan(
-    Math.tan(verticalHalfFov) * safeHeight / innerHeight,
-  );
-  const screenRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-  const screenUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
-  const corners = [];
-  for (const x of [bounds.min.x, bounds.max.x]) {
-    for (const y of [bounds.min.y, bounds.max.y]) {
-      for (const z of [bounds.min.z, bounds.max.z]) corners.push(new THREE.Vector3(x, y, z));
-    }
-  }
-  let requiredDistance = controls.minDistance;
-  for (const corner of corners) {
-    const relative = corner.sub(sphere.center);
-    const towardCamera = relative.dot(viewDirection);
-    requiredDistance = Math.max(
-      requiredDistance,
-      towardCamera + Math.abs(relative.dot(screenRight)) / Math.tan(horizontalHalfFov),
-      towardCamera + Math.abs(relative.dot(screenUp)) / Math.tan(safeVerticalHalfFov),
-    );
-  }
-  const distance = Math.min(
-    controls.maxDistance,
-    Math.max(controls.minDistance, requiredDistance * 1.10),
-  );
-
-  // Compose within the canvas area above the timeline. Offset the orbit target
-  // down in camera space to center the kit in that area.
-  const worldPerPixel = 2 * distance * Math.tan(verticalHalfFov) / innerHeight;
-  const safeCenterShift = (innerHeight - safeHeight) * 0.5 * worldPerPixel;
-  controls.target.copy(sphere.center).addScaledVector(screenUp, -safeCenterShift);
-  camera.position.copy(controls.target).addScaledVector(viewDirection, distance);
-  camera.near = Math.max(0.001, distance - sphere.radius * 1.8);
-  camera.far = Math.max(20, distance + sphere.radius * 4);
-  camera.updateProjectionMatrix();
-  controls.update();
 }
 
 // Save periodically

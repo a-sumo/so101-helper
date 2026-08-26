@@ -1,13 +1,6 @@
 // ─── GLB Export: bake assembly_sequence into GLB with animation channels ───
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-import {
-  FASTENER_PHASES,
-  effectiveStepWindow,
-  orientationAlignmentProgress,
-  sampleStagedCenter,
-  stagingCenterForStep,
-} from './assembly-staging.js';
 
 function easeFunc(t, type) {
   t = Math.max(0, Math.min(1, t));
@@ -23,21 +16,6 @@ function smoothstep01(edge0, edge1, x) {
   if (edge1 <= edge0) return x >= edge1 ? 1 : 0;
   const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
-}
-
-function worldQuaternionToLocal(object, worldQuaternion) {
-  if (!object.parent) return worldQuaternion.clone();
-  const parentWorld = object.parent.getWorldQuaternion(new THREE.Quaternion());
-  return parentWorld.invert().multiply(worldQuaternion);
-}
-
-function datumStagingWorldQuaternion(restWorldQuaternion, approachOffset) {
-  if (approachOffset.lengthSq() < 1e-10) return restWorldQuaternion.clone();
-  const fixtureDelta = new THREE.Quaternion().setFromUnitVectors(
-    approachOffset.clone().normalize(),
-    new THREE.Vector3(0, 0, 1),
-  );
-  return fixtureDelta.multiply(restWorldQuaternion.clone());
 }
 
 // Joints to drive during the demo segment. Order fixes phase offsets.
@@ -108,7 +86,6 @@ export async function exportAssemblyGLB(
 ) {
   const demoDuration = opts.demoDuration != null ? opts.demoDuration : 30;
   const FPS = opts.fps || 30;
-  const trajectoryMode = opts.trajectoryMode || 'spatial';
 
   const newTotalDuration = totalDuration + demoDuration;
   const frameCount = Math.ceil(newTotalDuration * FPS) + 1;
@@ -213,7 +190,6 @@ export async function exportAssemblyGLB(
       mesh: screwClone,
       localPos: localPos.clone(),
       localQuat: localQuat.clone(),
-      restWorldCenter: restWorldPos.clone(),
     });
   }
 
@@ -228,8 +204,7 @@ export async function exportAssemblyGLB(
   }
 
   const stepBindings = []; // { step, part, clonedMesh | screwExport, nodeName }
-  for (let sourceIndex = 0; sourceIndex < steps.length; sourceIndex++) {
-    const step = steps[sourceIndex];
+  for (const step of steps) {
     const part = partsCatalog.find(p => p.id === step.id);
     if (!part) continue;
 
@@ -241,14 +216,7 @@ export async function exportAssemblyGLB(
       if (!clonedMesh) continue;
       const nodeName = uniqueName(step.target || step.id);
       clonedMesh.name = nodeName;
-      const restWorldCenter = new THREE.Box3()
-        .setFromObject(liveMesh)
-        .getCenter(new THREE.Vector3());
-      const restWorldQuaternion = liveMesh.getWorldQuaternion(new THREE.Quaternion());
-      stepBindings.push({
-        kind: 'mesh', sourceIndex, step, part, liveMesh, orig, clonedMesh,
-        nodeName, restWorldCenter, restWorldQuaternion,
-      });
+      stepBindings.push({ kind: 'mesh', step, part, liveMesh, orig, clonedMesh, nodeName });
     } else if (part.type === 'screw') {
       const si = screw3DInstances.find(s => s.annotation.name === part.name);
       if (!si) continue;
@@ -256,11 +224,7 @@ export async function exportAssemblyGLB(
       if (!screwExport) continue;
       const nodeName = uniqueName(step.target || step.id);
       screwExport.mesh.name = nodeName;
-      const restWorldCenter = screwExport.restWorldCenter.clone();
-      stepBindings.push({
-        kind: 'screw', sourceIndex, step, part, si, screwExport, nodeName,
-        restWorldCenter,
-      });
+      stepBindings.push({ kind: 'screw', step, part, si, screwExport, nodeName });
     }
   }
 
@@ -311,33 +275,32 @@ export async function exportAssemblyGLB(
     for (const b of stepBindings) {
       const bufs = meshBuffers.get(b.nodeName);
       const step = b.step;
-      const [tStart, tEnd] = effectiveStepWindow(steps, b.sourceIndex);
+      const [tStart, tEnd] = step.time;
       const duration = tEnd - tStart;
-      const restScale = b.kind === 'mesh' ? b.liveMesh.scale : b.screwExport.mesh.scale;
-      bufs.scales[f * 3]     = restScale.x;
-      bufs.scales[f * 3 + 1] = restScale.y;
-      bufs.scales[f * 3 + 2] = restScale.z;
+      const defaultLead = b.kind === 'screw' ? 0.15 : 0.3;
+      const fadeLead = step.fade_lead != null ? step.fade_lead : defaultLead;
+      const fadeStart = tStart - fadeLead;
+
+      const s = smoothstep01(fadeStart, tStart, t);
+      bufs.scales[f * 3]     = s;
+      bufs.scales[f * 3 + 1] = s;
+      bufs.scales[f * 3 + 2] = s;
 
       const progress = duration > 0 ? Math.max(0, Math.min(1, (t - tStart) / duration)) : 1;
-      const stagingCenter = stagingCenterForStep(steps, b.sourceIndex);
+      const ep = easeFunc(progress, step.easing);
+      const blend = 1 - ep;
 
       if (b.kind === 'mesh') {
         const linkObj = robot.frames[step.link];
         if (!linkObj) continue;
-        const approachOffset = linkLocalToWorld(
-          new THREE.Vector3(...step.start_offset.pos),
-          linkObj,
+
+        const offsetPos = new THREE.Vector3(...step.start_offset.pos).multiplyScalar(blend);
+        const offsetRot = new THREE.Euler(...step.start_offset.rot);
+        const offsetQuat = new THREE.Quaternion().slerp(
+          new THREE.Quaternion().setFromEuler(offsetRot), blend
         );
-        const desiredCenter = new THREE.Vector3(...sampleStagedCenter({
-          stagingCenter,
-          restCenter: b.restWorldCenter.toArray(),
-          approachOffset: approachOffset.toArray(),
-          normalizedTime: progress,
-          sourceIndex: b.sourceIndex,
-          fastener: false,
-          trajectoryMode,
-        }));
-        const worldOff = desiredCenter.sub(b.restWorldCenter);
+
+        const worldOff = linkLocalToWorld(offsetPos, linkObj);
         const meshParent = b.liveMesh.parent;
         const parentOff = meshParent ? worldToLinkLocal(worldOff, meshParent) : worldOff;
 
@@ -346,15 +309,7 @@ export async function exportAssemblyGLB(
         bufs.positions[f * 3 + 1] = pos.y;
         bufs.positions[f * 3 + 2] = pos.z;
 
-        const stagingWorldRotation = datumStagingWorldQuaternion(
-          b.restWorldQuaternion,
-          approachOffset,
-        );
-        const alignedWorldRotation = stagingWorldRotation.slerp(
-          b.restWorldQuaternion,
-          orientationAlignmentProgress(progress),
-        );
-        const q = worldQuaternionToLocal(b.liveMesh, alignedWorldRotation);
+        const q = new THREE.Quaternion().multiplyQuaternions(offsetQuat, b.orig.quat);
         bufs.quaternions[f * 4]     = q.x;
         bufs.quaternions[f * 4 + 1] = q.y;
         bufs.quaternions[f * 4 + 2] = q.z;
@@ -362,49 +317,17 @@ export async function exportAssemblyGLB(
       } else {
         const restLocalPos = b.screwExport.localPos;
         const restLocalQuat = b.screwExport.localQuat;
-        const linkObj = robot.frames[step.link] || robot;
-        const approachOffset = linkLocalToWorld(
-          new THREE.Vector3(...step.start_offset.pos),
-          linkObj,
-        );
-        const desiredCenter = new THREE.Vector3(...sampleStagedCenter({
-          stagingCenter,
-          restCenter: b.restWorldCenter.toArray(),
-          approachOffset: approachOffset.toArray(),
-          normalizedTime: progress,
-          sourceIndex: b.sourceIndex,
-          fastener: true,
-          trajectoryMode,
-        }));
-        const worldDelta = desiredCenter.sub(b.restWorldCenter);
-        const pos = restLocalPos.clone().add(worldToLinkLocal(worldDelta, linkObj));
+
+        const offsetLocal = new THREE.Vector3(...step.start_offset.pos).multiplyScalar(blend);
+        const pos = restLocalPos.clone().add(offsetLocal);
         bufs.positions[f * 3]     = pos.x;
         bufs.positions[f * 3 + 1] = pos.y;
         bufs.positions[f * 3 + 2] = pos.z;
 
-        const insertT = Math.max(0, Math.min(
-          1,
-          (progress - FASTENER_PHASES.threadStart) /
-            (1 - FASTENER_PHASES.threadStart),
-        ));
-        const threadAngle = easeFunc(insertT, 'ease-in-out') *
-          (step.screw_rotations || 10) * Math.PI * 2;
+        const threadAngle = ep * (step.screw_rotations || 10) * Math.PI * 2;
         const localNormal = b.si.normal.clone().normalize();
         const threadQuat = new THREE.Quaternion().setFromAxisAngle(localNormal, threadAngle);
-        const linkWorldQuaternion = linkObj.getWorldQuaternion(new THREE.Quaternion());
-        const fixtureWorldRotation = new THREE.Quaternion().setFromAxisAngle(
-          new THREE.Vector3(1, 0, 0),
-          Math.PI / 2,
-        );
-        const fixtureLocalRotation = linkWorldQuaternion.clone().invert()
-          .multiply(fixtureWorldRotation);
-        const axisAlignment = smoothstep01(
-          FASTENER_PHASES.orientationStart,
-          FASTENER_PHASES.axisLocked,
-          progress,
-        );
-        const aligned = fixtureLocalRotation.slerp(restLocalQuat, axisAlignment);
-        const q = threadQuat.clone().multiply(aligned);
+        const q = threadQuat.clone().multiply(restLocalQuat);
         bufs.quaternions[f * 4]     = q.x;
         bufs.quaternions[f * 4 + 1] = q.y;
         bufs.quaternions[f * 4 + 2] = q.z;
