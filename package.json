@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Small, local-first helpers for SO-101 calibration and assembly animation setup.",
+  "description": "SO-101 setup, calibration, and assembly tools.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
@@ -17,5 +17,9 @@
   "engines": {
     "node": ">=20"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "dependencies": {
+    "three": "^0.183.2",
+    "urdf-loader": "^0.12.6"
+  }
 }

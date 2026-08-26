@@ -1,36 +1,11 @@
-# Assembly animation timeline
+# Assembly workbench
 
-The timeline builder creates a JSON sequence with stage ordering, grouping, and duration.
+Open [so101.curvilinear.space/assembly.html](https://so101.curvilinear.space/assembly.html).
 
-Use the [official SO-101 guide](https://huggingface.co/docs/lerobot/main/en/so101#assemble-the-so-101) alongside the timeline.
+The workbench loads the SO-101 model, screw annotations, and the 26-second assembly sequence.
 
-## Format
+- Select a part or timeline track to edit its start position, rotation, timing, easing, and fade.
+- Drag tracks, resize timing bars, scrub the playhead, or switch between clearance and grid paths.
+- Save locally, import or export JSON, export the animated GLB, or export the Lens Studio configuration.
 
-```json
-{
-  "$schema": "./schemas/assembly-sequence.schema.json",
-  "version": 1,
-  "title": "SO-101 assembly",
-  "steps": [
-    {
-      "id": "base",
-      "label": "Build the base",
-      "group": "FRAME",
-      "durationMs": 1800
-    }
-  ]
-}
-```
-
-Fields:
-
-- `id`: stable stage identifier.
-- `label`: viewer-facing stage name.
-- `group`: short uppercase category for styling or filtering.
-- `durationMs`: playback duration between 250 and 120000 milliseconds.
-
-The complete schema is [`schemas/assembly-sequence.schema.json`](../schemas/assembly-sequence.schema.json).
-
-## Timing
-
-Accumulate stage durations, select the active stage from elapsed time, and use local stage progress for animation timing.
+The canonical sequence is [`public/default-sequence.json`](../public/default-sequence.json). Screw locations are stored in [`public/so101_assembly_annotations_clean.json`](../public/so101_assembly_annotations_clean.json).
