@@ -260,7 +260,29 @@ def create_app(arm: SO101Arm, kinematics: SO101Kinematics) -> FastAPI:
 
     @app.get("/health")
     async def health():
-        return {"status": "ok", "joints_rad": arm.joints_rad}
+        return {
+            "status": "ok",
+            "dry_run": arm.dry_run,
+            "hardware_ready": not arm.dry_run and arm.bus is not None,
+            "joints_rad": arm.joints_rad,
+            "calibration": arm.calibration_summary(),
+        }
+
+    async def send_snapshot(websocket: WebSocket) -> None:
+        """Send the evidence the Lens requires before enabling Real arm."""
+        await websocket.send_json({
+            "event": "bridge_status",
+            "hardware_ready": not arm.dry_run and arm.bus is not None,
+            "dry_run": arm.dry_run,
+        })
+        await websocket.send_json(
+            {"event": "calibration", "calibration": arm.calibration_summary()}
+        )
+        await websocket.send_json({
+            "event": "arm_state",
+            "joints_rad": arm.joints_rad,
+            "t": time.time(),
+        })
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
@@ -284,9 +306,10 @@ def create_app(arm: SO101Arm, kinematics: SO101Kinematics) -> FastAPI:
         controller_ip = client_ip
         async with bus_lock:
             await asyncio.to_thread(arm.enable_torque)
-        print("Real arm motion enabled.")
 
         try:
+            await send_snapshot(websocket)
+            print("Real arm motion enabled.")
             while True:
                 message = json.loads(await websocket.receive_text())
                 event = message.get("event")
@@ -308,6 +331,8 @@ def create_app(arm: SO101Arm, kinematics: SO101Kinematics) -> FastAPI:
                     targets = {"gripper": gripper_target}
                 elif event == "ping":
                     await websocket.send_json({"event": "pong"})
+                elif event == "hello":
+                    await send_snapshot(websocket)
                 if targets:
                     async with bus_lock:
                         await asyncio.to_thread(arm.write, targets)
@@ -331,7 +356,11 @@ def main() -> None:
         description="Connect the SO-101 Lens to a physical SO-101."
     )
     parser.add_argument("--port")
-    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Loopback only by default; the trusted WSS helper is the LAN listener.",
+    )
     parser.add_argument("--ws-port", type=int, default=8097)
     parser.add_argument("--max-velocity", type=float, default=1.0)
     parser.add_argument("--dry-run", action="store_true")
@@ -341,7 +370,7 @@ def main() -> None:
     selected_port = arm.connect(args.port)
     kinematics = SO101Kinematics()
     print(f"SO-101: {selected_port}")
-    print(f"Lens bridge: {local_address(args.ws_port)}")
+    print(f"Local bridge: ws://{args.host}:{args.ws_port}/ws")
     print("Keep this process running while Real arm mode is active.")
 
     import uvicorn

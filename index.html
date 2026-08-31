@@ -36,11 +36,18 @@
         <header class="doc-title">
           <p class="eyebrow">SO-101 HELPER</p>
           <h1>SO-101 setup</h1>
-          <p>Connect an SO-101 to the Lens, inspect its calibration, or edit the assembly sequence.</p>
+          <p>Connect your own SO-101 to the Lens over a trusted local connection, inspect its calibration, or edit the assembly sequence.</p>
         </header>
 
         <section class="doc-section" id="connect">
           <h2>Connect the robot</h2>
+          <p>
+            This is local robot control, not a remote-control service. Every
+            owner runs the bridge and trusted helper on the computer physically
+            connected to their arm. Commands and telemetry stay on that LAN;
+            the hosted service handles only DNS, certificate proof, and a
+            one-time pairing code.
+          </p>
           <div class="connection-flow" aria-label="SO-101 connects by USB to a bridge on the computer. The bridge connects over local Wi-Fi to the SO-101 Lens on Spectacles.">
             <div><strong>SO-101</strong><span>Robot</span></div>
             <span class="connection-edge">USB ↔</span>
@@ -51,14 +58,24 @@
           <ol class="doc-steps">
             <li>Complete the <a href="https://huggingface.co/docs/lerobot/main/en/so101">SO-101 assembly and calibration guide ↗</a>.</li>
             <li>Connect USB logic power and DC servo power.</li>
+            <li>Clone the helper repository, create a Python 3.11 virtual environment, and install <code>requirements-bridge.txt</code>.</li>
             <li>
-              Start the local bridge.
-              <code class="command">uv run --python 3.11 --with-requirements requirements-bridge.txt python so101_bridge.py</code>
+              Enroll this computer once using the owner's certificate email.
+              <code class="command">.venv/bin/python bridge/local_wss_helper.py setup --email owner@example.com</code>
             </li>
-            <li>Enter the printed bridge address in the Lens.</li>
-            <li>Clear the workspace, then type <code>ARM</code> when the Lens connects.</li>
-            <li>Open <strong>Operate</strong>, select <strong>Real arm</strong>, and align the virtual and physical bases.</li>
+            <li>
+              Start the USB bridge in Terminal 1.
+              <code class="command">.venv/bin/python so101_bridge.py</code>
+            </li>
+            <li>
+              Start first-time pairing in Terminal 2.
+              <code class="command">.venv/bin/python bridge/local_wss_helper.py serve --pair</code>
+            </li>
+            <li>Launch the Lens on physical Spectacles. Enter Terminal 2's eight-digit code in the system PIN keyboard that appears inside the Lens—not in Cloudflare or Lens Studio.</li>
+            <li>Clear the workspace, type <code>ARM</code> in Terminal 1, then type <code>enable</code> in Terminal 2.</li>
+            <li>Open <strong>Operate</strong>, select <strong>Real arm</strong>, wait for <strong>ARM LIVE</strong>, and begin with a small motion.</li>
           </ol>
+          <p><a href="https://github.com/a-sumo/so101-helper/blob/main/docs/real-arm.md">Read the complete real-arm setup and troubleshooting guide →</a></p>
         </section>
 
         <section class="doc-section" id="tools">
