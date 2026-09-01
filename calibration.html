@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Inspect an SO-101 LeRobot calibration snapshot locally in your browser." />
+    <meta name="description" content="SO-101 calibration." />
     <title>Calibration Inspector · SO-101 Helper</title>
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
@@ -23,7 +23,7 @@
         <div>
           <p class="eyebrow">SO-101 HELPER</p>
           <h1>Calibration</h1>
-          <p>Open a LeRobot calibration JSON and review each joint's measured motion range.</p>
+          <p>Calibration JSON → joint range.</p>
         </div>
         <a class="button button-secondary" href="https://huggingface.co/docs/lerobot/main/en/so101#calibration" rel="noreferrer">Calibration guide ↗</a>
       </section>
@@ -31,13 +31,13 @@
       <section class="control-panel dot-surface">
         <div class="upload-zone" id="calibration-drop" tabindex="0" role="button" aria-controls="calibration-file">
           <div class="upload-icon" aria-hidden="true">{ }</div>
-          <div><strong>Drop a calibration JSON here</strong><span>or select a file from this device</span></div>
-          <button class="button button-primary" type="button" id="select-calibration">Select JSON</button>
+          <div><strong>Calibration JSON</strong><span>This device</span></div>
+          <button class="button button-primary" type="button" id="select-calibration">Select</button>
           <input id="calibration-file" type="file" accept="application/json,.json" hidden />
         </div>
         <div class="panel-actions">
-          <button class="button button-secondary" type="button" id="load-example">Load synthetic example</button>
-          <span class="privacy-note">LOCAL FILE PROCESSING</span>
+          <button class="button button-secondary" type="button" id="load-example">Example</button>
+          <span class="privacy-note">LOCAL</span>
         </div>
       </section>
 
@@ -52,17 +52,16 @@
         <div class="section-heading compact">
           <p class="eyebrow">PHYSICAL BOUNDS</p>
           <h2>Joint envelopes</h2>
-          <p class="section-note">The colored span is measured encoder travel clipped to the SO-101 mechanical envelope.</p>
         </div>
         <div class="joint-grid" id="joint-grid">
-          <div class="empty-state">Load a calibration snapshot to inspect all six motors.</div>
+          <div class="empty-state">Load JSON.</div>
         </div>
       </section>
 
       <section class="message-panel" id="calibration-messages" hidden aria-live="polite"></section>
     </main>
 
-    <footer class="site-footer"><span>Calibration inspector</span><span>Follow the official hardware safety instructions.</span></footer>
+    <footer class="site-footer"><span>Calibration</span></footer>
     <script type="module" src="./src/calibration.js"></script>
   </body>
 </html>

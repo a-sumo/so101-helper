@@ -19,7 +19,7 @@ function setMessages(result) {
   if (!items.length) return;
 
   const lead = document.createElement('strong');
-  lead.textContent = result.errors.length ? 'This snapshot needs attention.' : 'Snapshot parsed with notes.';
+  lead.textContent = result.errors.length ? 'Review.' : 'Notes.';
   const list = document.createElement('ul');
   for (const text of items) {
     const item = document.createElement('li');
@@ -88,7 +88,7 @@ function renderCalibration(data, sourceLabel) {
   const result = inspectCalibration(data);
   const state = result.errors.length ? 'error' : result.warnings.length ? 'warning' : 'valid';
   summary.dataset.state = state;
-  document.querySelector('#summary-status').textContent = result.errors.length ? 'Invalid' : result.warnings.length ? 'Review notes' : 'Valid shape';
+  document.querySelector('#summary-status').textContent = result.errors.length ? 'Invalid' : result.warnings.length ? 'Review' : 'Valid';
   document.querySelector('#summary-motors').textContent = `${result.joints.length} / 6`;
   document.querySelector('#summary-warnings').textContent = String(result.errors.length + result.warnings.length);
   document.querySelector('#summary-source').textContent = sourceLabel;
@@ -96,7 +96,7 @@ function renderCalibration(data, sourceLabel) {
   if (!result.joints.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = 'No valid motor entries were found.';
+    empty.textContent = 'No motors.';
     grid.append(empty);
   }
   setMessages(result);
@@ -110,7 +110,7 @@ async function readFile(file) {
   } catch (error) {
     renderCalibration(null, file.name);
     messages.hidden = false;
-    messages.textContent = `Could not parse this JSON: ${error.message}`;
+    messages.textContent = `JSON error: ${error.message}`;
   }
 }
 
